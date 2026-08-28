@@ -10,14 +10,20 @@ const starterJobs = [
   { id: 6, company: "Lumen AI", role: "Partnerships Manager", status: "waiting", priority: "medium", note: "Anfrage verschickt · Follow-up in 5 Tagen.", selectedContact: "Tobias Kern", contacts: [{ name: "Tobias Kern", title: "Founder" }] }
 ];
 let jobs = JSON.parse(localStorage.getItem("signalboard-jobs") || "null") || starterJobs;
+let savedSearches = JSON.parse(localStorage.getItem("signalboard-searches") || "null") || [
+  { id: 1, title: "Product Marketing", location: "Berlin · Remote", keywords: "B2B SaaS", active: true },
+  { id: 2, title: "Operations & Growth", location: "DACH", keywords: "Scale-up", active: true },
+  { id: 3, title: "Projektmanagement", location: "Berlin", keywords: "Agentur, Digital", active: false }
+];
 let filter = "all", query = "", draggingId = null;
 const board = document.querySelector("#board"), template = document.querySelector("#cardTemplate"), detailDialog = document.querySelector("#detailDialog");
-function save(){ localStorage.setItem("signalboard-jobs", JSON.stringify(jobs)); }
+function save(){ localStorage.setItem("signalboard-jobs", JSON.stringify(jobs)); localStorage.setItem("signalboard-searches", JSON.stringify(savedSearches)); }
 function initials(name){ return (name || "SB").split(" ").map(x=>x[0]).join("").slice(0,2); }
 function nextLabel(status){ return ({ inbox:"qualifizieren", qualified:"Kontakte finden", contacts:"Kontakt wählen", ready:"versenden", waiting:"nachfassen" })[status]; }
 function render(){
   const visible = jobs.filter(j => (filter === "all" || (filter === "high" ? j.priority === "high" : j.status === "waiting")) && `${j.company} ${j.role}`.toLowerCase().includes(query));
   document.querySelector("#totalCount").textContent = jobs.length;
+  document.querySelector("#activeSearchCount").textContent = savedSearches.filter(search => search.active).length;
   board.innerHTML = "";
   columns.forEach(([id, name]) => {
     const col = document.createElement("section"); col.className="column"; col.innerHTML=`<div class="column-head"><h2>${name}</h2><span>${visible.filter(j=>j.status===id).length}</span></div><div class="drop-zone" data-status="${id}"></div>`;
@@ -34,12 +40,49 @@ function render(){
 }
 function move(id){ const job=jobs.find(j=>j.id===id), at=columns.findIndex(x=>x[0]===job.status); if(at<columns.length-1){job.status=columns[at+1][0];save();render();} }
 function linkedInSearch(contact, company){ return `https://www.google.com/search?q=${encodeURIComponent(`site:linkedin.com/in \"${contact.name}\" \"${company}\"`)}`; }
-function openDetail(id){ const job=jobs.find(j=>j.id===id); const candidateList=(job.contacts||[]).map(c=>`<div class="contact"><div><strong>${c.name}</strong><span>${c.title}</span></div><a class="link-btn" target="_blank" rel="noreferrer" href="${linkedInSearch(c,job.company)}">Profil suchen ↗</a></div>`).join(""); const target=job.selectedContact || job.contacts?.[0]?.name || "[Name]";
-  document.querySelector("#detailContent").innerHTML=`<p class="eyebrow">${job.status.toUpperCase()} · ${job.priority === "high" ? "HOHE PRIORITÄT" : "PRIORITÄT MITTEL"}</p><h2>${job.company}</h2><p class="detail-role">${job.role}</p><section><h4>WARUM DIESER LEAD</h4><p>${job.note}</p></section><section><h4>RELEVANTE KONTAKTE</h4>${candidateList}<button class="secondary" id="selectContact">${job.selectedContact ? "Kontakt ändern" : "Ersten Kontakt auswählen"}</button></section><section><h4>KONTAKTANFRAGE · ENTWURF</h4><div class="message">Hallo ${target},\n\nich habe gesehen, dass ${job.company} gerade eine:n ${job.role} sucht. Während ihr die Position besetzt, könnte ich euch bei den wichtigsten Themen kurzfristig unterstützen und schnell Struktur in die Umsetzung bringen.\n\nWäre ein kurzer Austausch sinnvoll?</div><button class="copy" id="copyMessage">Text kopieren</button></section>`;
-  document.querySelector("#selectContact").onclick=()=>{job.selectedContact=job.contacts?.[0]?.name;save();render();openDetail(id)};
+function openDetail(id){ const job=jobs.find(j=>j.id===id); const role=job.role.toLowerCase(), functional=role.includes("marketing")||role.includes("growth") ? "CMO OR \"Head of Marketing\"" : role.includes("operations") ? "COO OR \"Head of Operations\"" : "Hiring Manager"; const research=[["Geschäftsführung", `site:linkedin.com/in "${job.company}" (CEO OR Founder OR Geschäftsführer)`],["Fachlicher Entscheider", `site:linkedin.com/in "${job.company}" (${functional})`]]; const candidateList=(job.contacts||[]).map((c,index)=>`<div class="contact"><div><strong>${c.name}</strong><span>${c.title}</span></div><div class="contact-actions"><a class="link-btn" target="_blank" rel="noreferrer" href="${linkedInSearch(c,job.company)}">Profil ↗</a><button class="choose-contact" data-index="${index}">Auswählen</button></div></div>`).join(""); const researchList=job.contacts.length<2 ? `<p class="research-note">Zwei passende Recherchepfade – Google öffnet die Profile. Name und Titel dann hier übernehmen.</p>${research.map(item=>`<div class="contact"><div><strong>${item[0]}</strong><span>${job.company}</span></div><a class="link-btn" target="_blank" rel="noreferrer" href="${googleSearch(item[1])}">Google-Suche ↗</a></div>`).join("")}<form id="contactForm" class="form-grid"><label>Name<input id="contactName" placeholder="Name aus dem Profil"></label><label>Rolle<input id="contactTitle" placeholder="z. B. CEO"></label><button class="secondary">Kontakt hinzufügen</button></form>` : ""; const target=job.selectedContact || job.contacts?.[0]?.name || "[Name]";
+  document.querySelector("#detailContent").innerHTML=`<p class="eyebrow">${job.status.toUpperCase()} · ${job.priority === "high" ? "HOHE PRIORITÄT" : "PRIORITÄT MITTEL"}</p><h2>${job.company}</h2><p class="detail-role">${job.role}${job.location ? " · " + job.location : ""}</p><section><h4>WARUM DIESER LEAD</h4><p>${job.note}</p></section><section><h4>KONTAKTE & RECHERCHE</h4>${candidateList}${researchList}</section><section><h4>KONTAKTANFRAGE · ENTWURF</h4><div class="message">Hallo ${target},\n\nich habe gesehen, dass ${job.company} gerade eine:n ${job.role} sucht. Während ihr die Position besetzt, könnte ich euch bei den wichtigsten Themen kurzfristig unterstützen und schnell Struktur in die Umsetzung bringen.\n\nWäre ein kurzer Austausch sinnvoll?</div><button class="copy" id="copyMessage">Text kopieren</button></section>`;
+  document.querySelectorAll(".choose-contact").forEach(button=>button.onclick=()=>{job.selectedContact=job.contacts[Number(button.dataset.index)].name;save();render();openDetail(id)}); const contactForm=document.querySelector("#contactForm"); if(contactForm) contactForm.onsubmit=event=>{event.preventDefault();const name=document.querySelector("#contactName").value.trim(),title=document.querySelector("#contactTitle").value.trim();if(name){job.contacts.push({name,title:title||"Entscheider"});save();render();openDetail(id);}};
   document.querySelector("#copyMessage").onclick=e=>{navigator.clipboard.writeText(document.querySelector(".message").innerText);e.target.textContent="Kopiert ✓";}; detailDialog.showModal();
 }
 document.querySelector("#addJob").onclick=()=>document.querySelector("#jobDialog").showModal();
-document.querySelector("#saveJob").onclick=e=>{const company=document.querySelector("#companyInput").value.trim(),role=document.querySelector("#roleInput").value.trim();if(!company||!role){e.preventDefault();return;}jobs.unshift({id:Date.now(),company,role,status:"inbox",priority:"medium",note:document.querySelector("#noteInput").value.trim()||"Neu hinzugefügt – Kontakt recherchieren.",contacts:[]});save();render();};
+document.querySelector("#saveJob").onclick=e=>{const company=document.querySelector("#companyInput").value.trim(),role=document.querySelector("#roleInput").value.trim();if(!company||!role){e.preventDefault();return;}jobs.unshift({id:Date.now(),company,role,location:document.querySelector("#locationInput").value.trim(),jobLink:document.querySelector("#linkInput").value.trim(),status:"inbox",priority:"medium",note:document.querySelector("#noteInput").value.trim()||"Neu hinzugefügt – Kontakt recherchieren.",contacts:[]});save();render();};
 document.querySelector(".detail-close").onclick=()=>detailDialog.close(); document.querySelector("#search").oninput=e=>{query=e.target.value.toLowerCase();render()}; document.querySelectorAll(".filter").forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll(".filter").forEach(x=>x.classList.toggle("active",x===b));render()}); document.querySelector("#focusButton").onclick=()=>document.body.classList.toggle("focus");
 render();
+
+function googleSearch(query) {
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+}
+
+function renderSavedSearches() {
+  const list = document.querySelector("#savedSearchList");
+  list.innerHTML = savedSearches.map(search => `<div class="search-row"><input type="checkbox" data-toggle="${search.id}" ${search.active ? "checked" : ""}><div class="search-copy"><strong>${search.title}</strong><span>${[search.location, search.keywords].filter(Boolean).join(" · ")}</span></div><button data-run="${search.id}">Suchen ↗</button><button class="delete-search" data-delete="${search.id}">×</button></div>`).join("");
+  list.querySelectorAll("[data-toggle]").forEach(input => input.onchange = () => { savedSearches.find(search => search.id === Number(input.dataset.toggle)).active = input.checked; save(); render(); });
+  list.querySelectorAll("[data-run]").forEach(button => button.onclick = () => {
+    const search = savedSearches.find(item => item.id === Number(button.dataset.run));
+    window.open(googleSearch(`${search.title} ${search.location || ""} ${search.keywords || ""} jobs`), "_blank", "noopener");
+  });
+  list.querySelectorAll("[data-delete]").forEach(button => button.onclick = () => { savedSearches = savedSearches.filter(search => search.id !== Number(button.dataset.delete)); save(); renderSavedSearches(); render(); });
+}
+
+document.querySelector("#openSearches").onclick = () => { renderSavedSearches(); document.querySelector("#searchDialog").showModal(); };
+document.querySelector(".search-close").onclick = () => document.querySelector("#searchDialog").close();
+document.querySelector("#searchForm").onsubmit = event => {
+  event.preventDefault();
+  savedSearches.push({ id: Date.now(), title: document.querySelector("#searchTitle").value.trim(), location: document.querySelector("#searchLocation").value.trim(), keywords: document.querySelector("#searchKeywords").value.trim(), active: true });
+  save(); event.target.reset(); renderSavedSearches(); render();
+};
+
+document.querySelector("#autofill").onclick = async () => {
+  const link = document.querySelector("#linkInput").value.trim(), status = document.querySelector("#autofillStatus");
+  if (!link) { status.textContent = "Bitte zuerst einen Job-Link einfügen."; return; }
+  status.textContent = "Jobseite wird gelesen …";
+  try {
+    const result = await fetch(`/api/job-preview?url=${encodeURIComponent(link)}`).then(response => response.json());
+    if (result.error) throw new Error(result.error);
+    document.querySelector("#companyInput").value = result.company;
+    document.querySelector("#roleInput").value = result.title;
+    document.querySelector("#locationInput").value = result.location;
+    status.textContent = `Daten von ${result.source} übernommen – bitte kurz prüfen.`;
+  } catch (error) { status.textContent = error.message || "Auto-Füllung nicht möglich."; }
+};
