@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="enhancements.css" />
     <link rel="stylesheet" href="discovery.css" />
     <link rel="stylesheet" href="board-interactions.css" />
+    <link rel="stylesheet" href="review.css" />
   </head>
   <body>
     <header class="topbar">
@@ -25,6 +26,7 @@
       </section>
       <section class="toolbar"><div class="search"><span>⌕</span><input id="search" placeholder="Jobs, Firmen oder Rollen durchsuchen" /></div><div class="filters"><button class="filter active" data-filter="all">Alle <b id="totalCount"></b></button><button class="filter" data-filter="new">Neu</button><button class="filter" data-filter="remote">Remote</button><button class="filter" data-filter="archive">Archiv</button></div></section>
       <section class="board" id="board" aria-label="Outreach Pipeline"></section>
+    <dialog id="tinderDialog"><article class="detail tinder"><button class="close tinder-close">×</button><div id="tinderContent"></div></article></dialog>
     </main>
     <dialog id="jobDialog"><form method="dialog" class="modal"><div class="modal-top"><div><p class="eyebrow">NEUER LEAD</p><h2>Job zur Pipeline hinzufügen</h2></div><button class="close" value="cancel">×</button></div><label>Job-Link <div class="input-action"><input id="linkInput" type="url" placeholder="Link zur Stellenanzeige einfügen" /><button type="button" id="autofill">Auto-füllen</button></div><small id="autofillStatus">Liest Titel, Firma und Standort aus der Jobseite.</small></label><div class="form-grid"><label>Firma<input id="companyInput" required placeholder="z. B. Pilot Labs" /></label><label>Offene Rolle<input id="roleInput" required placeholder="z. B. Head of Growth" /></label></div><label>Standort<input id="locationInput" placeholder="z. B. Berlin · Hybrid" /></label><label>Warum passt das?<textarea id="noteInput" placeholder="Ein kurzer Gedanke für später …"></textarea></label><div class="modal-actions"><button value="cancel" class="secondary">Abbrechen</button><button id="saveJob" value="default" class="primary">Zur Inbox</button></div></form></dialog>
     <dialog id="searchDialog"><article class="modal wide"><div class="modal-top"><div><p class="eyebrow">JOB-RECHERCHE</p><h2>Deine Suchaufträge</h2><p class="modal-intro">Aktive Suchaufträge durchsuchen verfügbare Jobquellen. Relevante Treffer gehen mit einem Klick als Karten in die Inbox.</p></div><button class="close search-close">×</button></div><div id="discoveryResults"></div><div id="savedSearchList" class="saved-list"></div><form id="searchForm" class="new-search"><div class="form-grid"><label>Bezeichnung / Keywords<input id="searchTitle" required placeholder="z. B. Product Marketing" /></label><label>Standort<input id="searchLocation" placeholder="z. B. Berlin, Remote, DACH" /></label></div><label>Zusätzliche Begriffe (optional)<input id="searchKeywords" placeholder="z. B. SaaS, B2B, interim" /></label><button class="secondary" type="submit">＋ Suchauftrag anlegen</button></form></article></dialog>
