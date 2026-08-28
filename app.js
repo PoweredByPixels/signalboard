@@ -1,5 +1,5 @@
 const columns = [
-  ["inbox", "Inbox"], ["qualified", "Qualifiziert"], ["contacts", "Kontakte"], ["ready", "Bereit zum Anschreiben"], ["waiting", "Waiting"]
+  ["inbox", "Inbox"], ["qualified", "Qualifiziert"], ["contacts", "Kontakte"], ["ready", "Bereit zum Anschreiben"], ["waiting", "Waiting"], ["archive", "Archiv"]
 ];
 const starterJobs = [
   { id: 1, company: "Fjord & Co.", role: "Head of Growth", status: "inbox", priority: "high", note: "Neue Wachstumsrolle – wahrscheinlich hoher Zeitdruck.", contacts: [{ name: "Mara Klein", title: "Founder & CEO" }, { name: "Jonas Weber", title: "COO" }] },
@@ -21,7 +21,7 @@ function save(){ localStorage.setItem("signalboard-jobs", JSON.stringify(jobs));
 function initials(name){ return (name || "SB").split(" ").map(x=>x[0]).join("").slice(0,2); }
 function nextLabel(status){ return ({ inbox:"qualifizieren", qualified:"Kontakte finden", contacts:"Kontakt wählen", ready:"versenden", waiting:"nachfassen" })[status]; }
 function render(){
-  const visible = jobs.filter(j => (filter === "all" || (filter === "high" ? j.priority === "high" : j.status === "waiting")) && `${j.company} ${j.role}`.toLowerCase().includes(query));
+  const visible = jobs.filter(j => (filter === "archive" ? j.status === "archive" : j.status !== "archive") && (filter === "all" || filter === "archive" || (filter === "new" ? j.isNew : filter === "remote" ? /remote/i.test(j.location || "") : j.status === "waiting")) && `${j.company} ${j.role}`.toLowerCase().includes(query));
   document.querySelector("#totalCount").textContent = jobs.length;
   document.querySelector("#activeSearchCount").textContent = savedSearches.filter(search => search.active).length;
   board.innerHTML = "";
@@ -31,9 +31,9 @@ function render(){
     if(!items.length) zone.innerHTML='<div class="empty">Karte hierher ziehen</div>';
     items.forEach(job=>{
       const card=template.content.firstElementChild.cloneNode(true); card.dataset.id=job.id;
-      card.querySelector(".priority").classList.add(job.priority); card.querySelector("h3").textContent=job.company; card.querySelector(".role").textContent=job.role; card.querySelector(".note").textContent=job.note;
+      card.querySelector(".priority").classList.add(job.priority); card.querySelector("h3").textContent=job.company; card.querySelector(".role").textContent=job.role; card.querySelector(".note").textContent=job.note; card.querySelector(".card-icons").textContent=`${job.source ? "⌁" : "✎"} ${job.isNew ? "●" : ""} ${/remote/i.test(job.location || "") ? "⌂" : ""}`;
       const contact=job.selectedContact || job.contacts?.[0]?.name; card.querySelector(".avatar").textContent=initials(contact); card.querySelector(".next-step").textContent=job.status === "waiting" ? "Follow-up planen" : nextLabel(job.status);
-      card.querySelector(".dots").onclick=()=>openDetail(job.id); card.querySelector(".arrow").onclick=()=>move(job.id); card.addEventListener("dragstart",()=>draggingId=job.id); card.addEventListener("dragend",()=>draggingId=null); zone.append(card);
+      card.onclick=()=>{job.isNew=false;save();openDetail(job.id)}; card.querySelector(".dots").onclick=e=>{e.stopPropagation(); if(window.confirm("OK = Karte öffnen · Abbrechen = archivieren")) openDetail(job.id); else {job.status="archive";save();render();}}; card.querySelector(".arrow").onclick=e=>{e.stopPropagation();move(job.id)}; const grab=card.querySelector(".card-grab"); grab.addEventListener("dragstart",()=>draggingId=job.id); grab.addEventListener("dragend",()=>draggingId=null); zone.append(card);
     });
     zone.addEventListener("dragover",e=>{e.preventDefault();zone.classList.add("drag-over")}); zone.addEventListener("dragleave",()=>zone.classList.remove("drag-over")); zone.addEventListener("drop",e=>{e.preventDefault();zone.classList.remove("drag-over"); const job=jobs.find(j=>j.id===draggingId);if(job){job.status=id;save();render()}}); board.append(col);
   });
@@ -105,4 +105,19 @@ document.querySelector("#autofill").onclick = async () => {
     document.querySelector("#locationInput").value = result.location;
     status.textContent = `Daten von ${result.source} übernommen – bitte kurz prüfen.`;
   } catch (error) { status.textContent = error.message || "Auto-Füllung nicht möglich."; }
+};
+
+document.querySelector("#searchNow").onclick = async event => {
+  const button = event.currentTarget, active = savedSearches.filter(search => search.active);
+  button.disabled = true; button.textContent = "◌ Suche läuft …";
+  let imported = 0, sources = new Set();
+  for (const search of active) {
+    try {
+      const params = new URLSearchParams({ title: search.title, location: search.location, keywords: search.keywords });
+      const response = await fetch(`/api/discover-jobs?${params}`).then(result => result.json());
+      (response.jobs || []).forEach(job => { if (!jobs.some(card => card.jobLink === job.url)) { jobs.unshift({ id: Date.now() + imported, company: job.company, role: job.title, location: job.location, jobLink: job.url, source: job.source, searchId: search.id, publishedAt: job.publishedAt, status: "inbox", priority: "medium", isNew: true, note: job.description || "Neu gefunden.", contacts: [] }); imported++; sources.add(job.source); } });
+    } catch {}
+  }
+  save(); render(); button.disabled = false; button.textContent = imported ? `✓ ${imported} neu · Jetzt suchen` : "Keine neuen Jobs";
+  setTimeout(() => button.textContent = "◌ Jetzt suchen", 3500);
 };

@@ -11,24 +11,25 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="enhancements.css" />
     <link rel="stylesheet" href="discovery.css" />
+    <link rel="stylesheet" href="board-interactions.css" />
   </head>
   <body>
     <header class="topbar">
       <a class="brand" href="#"><span class="brand-mark">S</span><span>signalboard</span></a>
-      <div class="top-actions"><button class="secondary saved-searches" id="openSearches">⌕ Suchaufträge <b id="activeSearchCount"></b></button><button class="icon-button" id="focusButton" title="Fokusmodus">⌘</button><button class="primary" id="addJob">＋ Job hinzufügen</button></div>
+      <div class="top-actions"><button class="secondary saved-searches" id="openSearches">⌕ Suchaufträge <b id="activeSearchCount"></b></button><button class="secondary" id="searchNow">◌ Jetzt suchen</button><button class="icon-button" id="focusButton" title="Fokusmodus">⌘</button><button class="primary" id="addJob">＋ Job hinzufügen</button></div>
     </header>
     <main>
       <section class="hero">
         <div><p class="eyebrow">FREELANCE OUTREACH · AUGUST</p><h1>Finde Signale.<br /><em>Starte Gespräche.</em></h1><p class="intro">Deine persönliche Pipeline für offene Rollen, relevante Entscheider und durchdachte Kontaktaufnahme.</p></div>
         <div class="goal"><span>Diese Woche</span><strong>3 <small>/ 8</small></strong><p>persönliche Nachrichten</p><div class="progress"><i></i></div></div>
       </section>
-      <section class="toolbar"><div class="search"><span>⌕</span><input id="search" placeholder="Jobs, Firmen oder Rollen durchsuchen" /></div><div class="filters"><button class="filter active" data-filter="all">Alle <b id="totalCount"></b></button><button class="filter" data-filter="high">Hohe Priorität</button><button class="filter" data-filter="followup">Follow-up fällig</button></div></section>
+      <section class="toolbar"><div class="search"><span>⌕</span><input id="search" placeholder="Jobs, Firmen oder Rollen durchsuchen" /></div><div class="filters"><button class="filter active" data-filter="all">Alle <b id="totalCount"></b></button><button class="filter" data-filter="new">Neu</button><button class="filter" data-filter="remote">Remote</button><button class="filter" data-filter="archive">Archiv</button></div></section>
       <section class="board" id="board" aria-label="Outreach Pipeline"></section>
     </main>
     <dialog id="jobDialog"><form method="dialog" class="modal"><div class="modal-top"><div><p class="eyebrow">NEUER LEAD</p><h2>Job zur Pipeline hinzufügen</h2></div><button class="close" value="cancel">×</button></div><label>Job-Link <div class="input-action"><input id="linkInput" type="url" placeholder="Link zur Stellenanzeige einfügen" /><button type="button" id="autofill">Auto-füllen</button></div><small id="autofillStatus">Liest Titel, Firma und Standort aus der Jobseite.</small></label><div class="form-grid"><label>Firma<input id="companyInput" required placeholder="z. B. Pilot Labs" /></label><label>Offene Rolle<input id="roleInput" required placeholder="z. B. Head of Growth" /></label></div><label>Standort<input id="locationInput" placeholder="z. B. Berlin · Hybrid" /></label><label>Warum passt das?<textarea id="noteInput" placeholder="Ein kurzer Gedanke für später …"></textarea></label><div class="modal-actions"><button value="cancel" class="secondary">Abbrechen</button><button id="saveJob" value="default" class="primary">Zur Inbox</button></div></form></dialog>
     <dialog id="searchDialog"><article class="modal wide"><div class="modal-top"><div><p class="eyebrow">JOB-RECHERCHE</p><h2>Deine Suchaufträge</h2><p class="modal-intro">Aktive Suchaufträge durchsuchen verfügbare Jobquellen. Relevante Treffer gehen mit einem Klick als Karten in die Inbox.</p></div><button class="close search-close">×</button></div><div id="discoveryResults"></div><div id="savedSearchList" class="saved-list"></div><form id="searchForm" class="new-search"><div class="form-grid"><label>Bezeichnung / Keywords<input id="searchTitle" required placeholder="z. B. Product Marketing" /></label><label>Standort<input id="searchLocation" placeholder="z. B. Berlin, Remote, DACH" /></label></div><label>Zusätzliche Begriffe (optional)<input id="searchKeywords" placeholder="z. B. SaaS, B2B, interim" /></label><button class="secondary" type="submit">＋ Suchauftrag anlegen</button></form></article></dialog>
     <dialog id="detailDialog"><article class="detail"><button class="close detail-close">×</button><div id="detailContent"></div></article></dialog>
-    <template id="cardTemplate"><article class="card" draggable="true"><div class="card-top"><span class="priority"></span><button class="dots" title="Details">•••</button></div><h3></h3><p class="role"></p><p class="note"></p><div class="card-footer"><span class="avatar"></span><span class="next-step"></span><button class="arrow" title="Nächster Schritt">→</button></div></article></template>
+    <template id="cardTemplate"><article class="card"><div class="card-top card-grab" draggable="true"><span class="priority"></span><span class="card-icons"></span><button class="dots" title="Optionen">•••</button></div><h3></h3><p class="role"></p><p class="note"></p><div class="card-footer"><span class="avatar"></span><span class="next-step"></span><button class="arrow" title="Nächster Schritt">→</button></div></article></template>
     <script src="app.js"></script>
   </body>
 </html>
