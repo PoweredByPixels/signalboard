@@ -21,6 +21,32 @@ function findJobData(html, url) {
   const location = [address.addressLocality, address.addressRegion, address.addressCountry].filter(Boolean).join(", ");
   return { title: plain(job.title || ogTitle || titleTag || ""), company: plain(company), location: plain(location), source: new URL(url).hostname.replace(/^www\./, "") };
 }
+function hasTerms(value, search) {
+  const text = String(value || "").toLowerCase();
+  return String(search || "").toLowerCase().split(/[,&/]+/).map(term => term.trim()).filter(Boolean).some(term => text.includes(term));
+}
+function discoverJobs(title, location, keywords) {
+  const timeout = AbortSignal.timeout(12000);
+  return Promise.allSettled([
+    fetch("https://remotive.com/api/remote-jobs", { signal: timeout }).then(response => response.json()),
+    fetch("https://www.arbeitnow.com/api/job-board-api", { signal: timeout }).then(response => response.json())
+  ]).then(results => {
+    const remote = results[0].status === "fulfilled" ? results[0].value.jobs.map(job => ({
+      title: plain(job.title), company: plain(job.company_name), location: plain(job.candidate_required_location || "Remote"),
+      url: job.url, source: "Remotive", publishedAt: job.publication_date, description: plain(job.description).slice(0, 260)
+    })) : [];
+    const arbeitnow = results[1].status === "fulfilled" ? results[1].value.data.map(job => ({
+      title: plain(job.title), company: plain(job.company_name), location: plain(job.location || (job.remote ? "Remote" : "")),
+      url: job.url, source: "Arbeitnow", publishedAt: job.created_at ? new Date(job.created_at * 1000).toISOString() : "", description: plain(job.description).slice(0, 260)
+    })) : [];
+    const all = [...arbeitnow, ...remote];
+    const matches = all.filter(job => hasTerms(job.title, title) || hasTerms(job.description, title))
+      .filter(job => !location || (/remote/i.test(location) ? /remote/i.test(job.location + " " + job.description) : hasTerms(job.location, location) || hasTerms(job.description, location)))
+      .filter(job => !keywords || hasTerms(job.title + " " + job.description, keywords))
+      .slice(0, 12);
+    return matches;
+  });
+}
 
 createServer((req, res) => {
   const requested = req.url?.split("?")[0] || "/";
@@ -31,6 +57,14 @@ createServer((req, res) => {
       .then(response => response.text())
       .then(html => { res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify(findJobData(html, url))); })
       .catch(() => { res.writeHead(422, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Die Jobseite konnte nicht ausgelesen werden. Du kannst die Felder trotzdem manuell füllen." })); });
+  }
+  if (requested === "/api/discover-jobs") {
+    const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
+    const title = params.get("title") || "", location = params.get("location") || "", keywords = params.get("keywords") || "";
+    if (!title) { res.writeHead(400, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "Ein Rollen- oder Keyword-Begriff fehlt." })); }
+    return discoverJobs(title, location, keywords)
+      .then(jobs => { res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify({ jobs })); })
+      .catch(() => { res.writeHead(502, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Die Jobquellen sind gerade nicht erreichbar." })); });
   }
   const safePath = normalize(requested === "/" ? "/index.html" : requested).replace(/^(\.\.[\\/])+/g, "");
   const file = join(root, safePath);

@@ -54,14 +54,34 @@ function googleSearch(query) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
 }
 
+function showDiscoveredJobs(items, label) {
+  const area = document.querySelector("#discoveryResults");
+  if (!items.length) { area.innerHTML = '<div class="discovery-empty">Keine Treffer in den angebundenen Quellen. Suchparameter anpassen oder Google Jobs ergänzend nutzen.</div>'; return; }
+  area.innerHTML = `<div class="discovery-head"><h3>${items.length} neue Treffer</h3><span class="discovery-status">${label}</span></div>${items.map((job, index) => `<article class="result-row"><div class="result-copy"><strong>${job.company} · ${job.title}</strong><span>${job.location || "Standort offen"} · ${job.source}</span><p>${job.description || ""}</p></div><div class="result-actions"><a target="_blank" rel="noreferrer" href="${job.url}">Job ↗</a><button data-result="${index}">Zur Inbox</button></div></article>`).join("")}`;
+  area.querySelectorAll("[data-result]").forEach(button => button.onclick = () => {
+    const job = items[Number(button.dataset.result)];
+    if (jobs.some(item => item.jobLink === job.url)) { button.textContent = "Schon da"; button.disabled = true; return; }
+    jobs.unshift({ id: Date.now() + Number(button.dataset.result), company: job.company, role: job.title, location: job.location, jobLink: job.url, status: "inbox", priority: "medium", note: job.description || `Neu über ${job.source} gefunden.`, contacts: [] });
+    save(); render(); button.textContent = "Hinzugefügt ✓"; button.disabled = true;
+  });
+}
+
+async function runDiscovery(id) {
+  const search = savedSearches.find(item => item.id === id), area = document.querySelector("#discoveryResults");
+  area.innerHTML = `<div class="discovery-empty">Durchsuche Jobquellen für <strong>${search.title}</strong> …</div>`;
+  try {
+    const params = new URLSearchParams({ title: search.title, location: search.location, keywords: search.keywords });
+    const response = await fetch(`/api/discover-jobs?${params}`).then(result => result.json());
+    if (response.error) throw new Error(response.error);
+    showDiscoveredJobs(response.jobs, `${search.title} · ${search.location || "alle Standorte"}`);
+  } catch (error) { area.innerHTML = `<div class="discovery-empty">${error.message || "Jobquellen sind gerade nicht erreichbar."}</div>`; }
+}
+
 function renderSavedSearches() {
   const list = document.querySelector("#savedSearchList");
   list.innerHTML = savedSearches.map(search => `<div class="search-row"><input type="checkbox" data-toggle="${search.id}" ${search.active ? "checked" : ""}><div class="search-copy"><strong>${search.title}</strong><span>${[search.location, search.keywords].filter(Boolean).join(" · ")}</span></div><button data-run="${search.id}">Suchen ↗</button><button class="delete-search" data-delete="${search.id}">×</button></div>`).join("");
   list.querySelectorAll("[data-toggle]").forEach(input => input.onchange = () => { savedSearches.find(search => search.id === Number(input.dataset.toggle)).active = input.checked; save(); render(); });
-  list.querySelectorAll("[data-run]").forEach(button => button.onclick = () => {
-    const search = savedSearches.find(item => item.id === Number(button.dataset.run));
-    window.open(googleSearch(`${search.title} ${search.location || ""} ${search.keywords || ""} jobs`), "_blank", "noopener");
-  });
+  list.querySelectorAll("[data-run]").forEach(button => button.onclick = () => runDiscovery(Number(button.dataset.run)));
   list.querySelectorAll("[data-delete]").forEach(button => button.onclick = () => { savedSearches = savedSearches.filter(search => search.id !== Number(button.dataset.delete)); save(); renderSavedSearches(); render(); });
 }
 
