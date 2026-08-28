@@ -10,14 +10,17 @@ const starterJobs = [
   { id: 6, company: "Lumen AI", role: "Partnerships Manager", status: "waiting", priority: "medium", note: "Anfrage verschickt · Follow-up in 5 Tagen.", selectedContact: "Tobias Kern", contacts: [{ name: "Tobias Kern", title: "Founder" }] }
 ];
 let jobs = JSON.parse(localStorage.getItem("signalboard-jobs") || "null") || starterJobs;
+const testCompanies = new Set(["Fjord & Co.", "Noveo", "Kite Mobility", "morrow studio", "Vela", "Lumen AI"]);
+jobs = jobs.filter(job => !testCompanies.has(job.company));
 let savedSearches = JSON.parse(localStorage.getItem("signalboard-searches") || "null") || [
   { id: 1, title: "Product Marketing", location: "Berlin · Remote", keywords: "B2B SaaS", active: true },
   { id: 2, title: "Operations & Growth", location: "DACH", keywords: "Scale-up", active: true },
   { id: 3, title: "Projektmanagement", location: "Berlin", keywords: "Agentur, Digital", active: false }
 ];
-let filter = "all", query = "", draggingId = null;
+let filter = "all", query = "", draggingId = null, editingSearchId = null;
 const board = document.querySelector("#board"), template = document.querySelector("#cardTemplate"), detailDialog = document.querySelector("#detailDialog");
 function save(){ localStorage.setItem("signalboard-jobs", JSON.stringify(jobs)); localStorage.setItem("signalboard-searches", JSON.stringify(savedSearches)); }
+save();
 function initials(name){ return (name || "SB").split(" ").map(x=>x[0]).join("").slice(0,2); }
 function nextLabel(status){ return ({ inbox:"qualifizieren", qualified:"Kontakte finden", contacts:"Kontakt wählen", ready:"versenden", waiting:"nachfassen" })[status]; }
 function render(){
@@ -31,7 +34,7 @@ function render(){
     if(!items.length) zone.innerHTML='<div class="empty">Karte hierher ziehen</div>';
     items.forEach(job=>{
       const card=template.content.firstElementChild.cloneNode(true); card.dataset.id=job.id;
-      card.querySelector(".priority").classList.add(job.priority); card.querySelector("h3").textContent=job.company; card.querySelector(".role").textContent=job.role; card.querySelector(".note").textContent=job.note; card.querySelector(".card-icons").textContent=`${job.source ? "⌁" : "✎"} ${job.isNew ? "●" : ""} ${/remote/i.test(job.location || "") ? "⌂" : ""}`;
+      card.querySelector(".priority").classList.add(job.priority); card.querySelector("h3").textContent=job.company; card.querySelector(".role").textContent=job.role; card.querySelector(".note").textContent=job.note; card.querySelector(".card-icons").textContent=`${job.source ? "🔎" : "✍️"} ${job.isNew ? "🆕" : ""} ${/remote/i.test(job.location || "") ? "🏠" : ""} ${job.industry === "games" ? "🎮" : ""}`;
       const contact=job.selectedContact || job.contacts?.[0]?.name; card.querySelector(".avatar").textContent=initials(contact); card.querySelector(".next-step").textContent=job.status === "waiting" ? "Follow-up planen" : nextLabel(job.status);
       card.onclick=()=>{job.isNew=false;save();openDetail(job.id)}; card.querySelector(".dots").onclick=e=>{e.stopPropagation(); if(window.confirm("OK = Karte öffnen · Abbrechen = archivieren")) openDetail(job.id); else {job.status="archive";save();render();}}; card.querySelector(".arrow").onclick=e=>{e.stopPropagation();move(job.id)}; const grab=card.querySelector(".card-grab"); grab.addEventListener("dragstart",()=>draggingId=job.id); grab.addEventListener("dragend",()=>draggingId=null); zone.append(card);
     });
@@ -79,9 +82,18 @@ async function runDiscovery(id) {
 
 function renderSavedSearches() {
   const list = document.querySelector("#savedSearchList");
-  list.innerHTML = savedSearches.map(search => `<div class="search-row"><input type="checkbox" data-toggle="${search.id}" ${search.active ? "checked" : ""}><div class="search-copy"><strong>${search.title}</strong><span>${[search.location, search.keywords].filter(Boolean).join(" · ")}</span></div><button data-run="${search.id}">Suchen ↗</button><button class="delete-search" data-delete="${search.id}">×</button></div>`).join("");
+  list.innerHTML = savedSearches.map(search => `<div class="search-row"><input type="checkbox" data-toggle="${search.id}" ${search.active ? "checked" : ""}><div class="search-copy"><strong>${search.title}</strong><span>${[search.location, search.keywords].filter(Boolean).join(" · ")}</span></div><button class="edit-search" data-edit="${search.id}" title="Bearbeiten">✎</button><button data-run="${search.id}">Suchen ↗</button><button class="delete-search" data-delete="${search.id}">×</button></div>`).join("");
   list.querySelectorAll("[data-toggle]").forEach(input => input.onchange = () => { savedSearches.find(search => search.id === Number(input.dataset.toggle)).active = input.checked; save(); render(); });
   list.querySelectorAll("[data-run]").forEach(button => button.onclick = () => runDiscovery(Number(button.dataset.run)));
+  list.querySelectorAll("[data-edit]").forEach(button => button.onclick = () => {
+    const search = savedSearches.find(item => item.id === Number(button.dataset.edit));
+    editingSearchId = search.id;
+    document.querySelector("#searchTitle").value = search.title;
+    document.querySelector("#searchLocation").value = search.location || "";
+    document.querySelector("#searchKeywords").value = search.keywords || "";
+    document.querySelector("#searchForm button").textContent = "Änderungen speichern";
+    document.querySelector("#searchTitle").focus();
+  });
   list.querySelectorAll("[data-delete]").forEach(button => button.onclick = () => { savedSearches = savedSearches.filter(search => search.id !== Number(button.dataset.delete)); save(); renderSavedSearches(); render(); });
 }
 
@@ -89,8 +101,10 @@ document.querySelector("#openSearches").onclick = () => { renderSavedSearches();
 document.querySelector(".search-close").onclick = () => document.querySelector("#searchDialog").close();
 document.querySelector("#searchForm").onsubmit = event => {
   event.preventDefault();
-  savedSearches.push({ id: Date.now(), title: document.querySelector("#searchTitle").value.trim(), location: document.querySelector("#searchLocation").value.trim(), keywords: document.querySelector("#searchKeywords").value.trim(), active: true });
-  save(); event.target.reset(); renderSavedSearches(); render();
+  const values = { title: document.querySelector("#searchTitle").value.trim(), location: document.querySelector("#searchLocation").value.trim(), keywords: document.querySelector("#searchKeywords").value.trim() };
+  if (editingSearchId) Object.assign(savedSearches.find(search => search.id === editingSearchId), values);
+  else savedSearches.push({ id: Date.now(), ...values, active: true });
+  editingSearchId = null; save(); event.target.reset(); document.querySelector("#searchForm button").textContent = "＋ Suchauftrag anlegen"; renderSavedSearches(); render();
 };
 
 document.querySelector("#autofill").onclick = async () => {
@@ -106,6 +120,7 @@ document.querySelector("#autofill").onclick = async () => {
     status.textContent = `Daten von ${result.source} übernommen – bitte kurz prüfen.`;
   } catch (error) { status.textContent = error.message || "Auto-Füllung nicht möglich."; }
 };
+document.querySelectorAll("dialog").forEach(dialog => dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); }));
 
 document.querySelector("#searchNow").onclick = async event => {
   const button = event.currentTarget, active = savedSearches.filter(search => search.active);
