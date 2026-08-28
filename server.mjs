@@ -25,11 +25,11 @@ function hasTerms(value, search) {
   const text = String(value || "").toLowerCase();
   return String(search || "").toLowerCase().split(/[,&/]+/).map(term => term.trim()).filter(Boolean).some(term => text.includes(term));
 }
-function discoverJobs(title, location, keywords) {
+function discoverJobs(title, location, keywords, sourceOptions = {}) {
   const timeout = AbortSignal.timeout(12000);
   return Promise.allSettled([
-    fetch("https://remotive.com/api/remote-jobs", { signal: timeout }).then(response => response.json()),
-    fetch("https://www.arbeitnow.com/api/job-board-api", { signal: timeout }).then(response => response.json())
+    sourceOptions.remotive !== false ? fetch("https://remotive.com/api/remote-jobs", { signal: timeout }).then(response => response.json()) : Promise.resolve({ jobs: [] }),
+    sourceOptions.arbeitnow !== false ? fetch("https://www.arbeitnow.com/api/job-board-api", { signal: timeout }).then(response => response.json()) : Promise.resolve({ data: [] })
   ]).then(results => {
     const remote = results[0].status === "fulfilled" ? results[0].value.jobs.map(job => ({
       title: plain(job.title), company: plain(job.company_name), location: plain(job.candidate_required_location || "Remote"),
@@ -62,7 +62,7 @@ createServer((req, res) => {
     const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
     const title = params.get("title") || "", location = params.get("location") || "", keywords = params.get("keywords") || "";
     if (!title) { res.writeHead(400, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "Ein Rollen- oder Keyword-Begriff fehlt." })); }
-    return discoverJobs(title, location, keywords)
+    return discoverJobs(title, location, keywords, { arbeitnow: params.get("arbeitnow") !== "false", remotive: params.get("remotive") !== "false" })
       .then(jobs => { res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify({ jobs })); })
       .catch(() => { res.writeHead(502, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Die Jobquellen sind gerade nicht erreichbar." })); });
   }

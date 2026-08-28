@@ -37,7 +37,7 @@ function render(){
     if(!items.length) zone.innerHTML='<div class="empty">Karte hierher ziehen</div>';
     items.forEach(job=>{
       const card=template.content.firstElementChild.cloneNode(true); card.dataset.id=job.id;
-      card.querySelector(".priority").classList.add(job.priority); card.querySelector("h3").textContent=job.company; card.querySelector(".role").textContent=job.role; card.querySelector(".note").textContent=job.note; card.querySelector(".card-icons").textContent=`${job.source ? "🔎" : "✍️"} ${job.isNew ? "🆕" : ""} ${/remote/i.test(job.location || "") ? "🏠" : ""} ${job.industry === "games" ? "🎮" : ""}`;
+      card.querySelector(".priority").classList.add(job.priority); card.querySelector("h3").textContent=job.role; card.querySelector(".role").textContent=job.company; card.querySelector(".note").textContent=job.note; card.querySelector(".card-icons").textContent=`${job.source ? "🔎" : "✍️"} ${job.isNew ? "🆕" : ""} ${/remote/i.test(job.location || "") ? "🏠" : ""} ${job.industry === "games" ? "🎮" : ""}`;
       const contact=job.selectedContact || job.contacts?.[0]?.name; card.querySelector(".avatar").textContent=initials(contact); card.querySelector(".next-step").textContent=job.status === "waiting" ? "Follow-up planen" : nextLabel(job.status);
       card.onclick=()=>{job.isNew=false;save();openDetail(job.id)}; card.querySelector(".dots").onclick=e=>{e.stopPropagation(); if(window.confirm("OK = Karte öffnen · Abbrechen = archivieren")) openDetail(job.id); else {job.status="archive";save();render();}}; card.querySelector(".arrow").onclick=e=>{e.stopPropagation();move(job.id)}; const grab=card.querySelector(".card-grab"); grab.addEventListener("dragstart",()=>draggingId=job.id); grab.addEventListener("dragend",()=>draggingId=null); zone.append(card);
     });
@@ -96,6 +96,8 @@ function renderSavedSearches() {
     document.querySelector("#searchTitle").value = search.title;
     document.querySelector("#searchLocation").value = search.location || "";
     document.querySelector("#searchKeywords").value = search.keywords || "";
+    document.querySelector("#sourceArbeitnow").checked = search.sources?.arbeitnow !== false;
+    document.querySelector("#sourceRemotive").checked = search.sources?.remotive !== false;
     document.querySelector("#searchForm button").textContent = "Änderungen speichern";
     document.querySelector("#searchTitle").focus();
   });
@@ -106,7 +108,7 @@ document.querySelector("#openSearches").onclick = () => { renderSavedSearches();
 document.querySelector(".search-close").onclick = () => document.querySelector("#searchDialog").close();
 document.querySelector("#searchForm").onsubmit = event => {
   event.preventDefault();
-  const values = { title: document.querySelector("#searchTitle").value.trim(), location: document.querySelector("#searchLocation").value.trim(), keywords: document.querySelector("#searchKeywords").value.trim() };
+  const values = { title: document.querySelector("#searchTitle").value.trim(), location: document.querySelector("#searchLocation").value.trim(), keywords: document.querySelector("#searchKeywords").value.trim(), sources: { arbeitnow: document.querySelector("#sourceArbeitnow").checked, remotive: document.querySelector("#sourceRemotive").checked } };
   if (editingSearchId) Object.assign(savedSearches.find(search => search.id === editingSearchId), values);
   else savedSearches.push({ id: Date.now(), ...values, active: true });
   editingSearchId = null; save(); event.target.reset(); document.querySelector("#searchForm button").textContent = "＋ Suchauftrag anlegen"; renderSavedSearches(); render();
@@ -134,7 +136,7 @@ document.querySelector("#searchNow").onclick = async event => {
   let imported = 0, sources = new Set();
   for (const search of active) {
     try {
-      const params = new URLSearchParams({ title: search.title, location: search.location, keywords: search.keywords });
+      const params = new URLSearchParams({ title: search.title, location: search.location, keywords: search.keywords, arbeitnow: search.sources?.arbeitnow !== false, remotive: search.sources?.remotive !== false });
       const response = await fetch(`/api/discover-jobs?${params}`).then(result => result.json());
       (response.jobs || []).forEach(job => { if (!jobs.some(card => card.jobLink === job.url)) { jobs.unshift({ id: Date.now() + imported, company: job.company, role: job.title, location: job.location, jobLink: job.url, source: job.source, searchId: search.id, publishedAt: job.publishedAt, status: "inbox", priority: "medium", isNew: true, note: job.description || "Neu gefunden.", contacts: [] }); imported++; sources.add(job.source); } });
     } catch {}
