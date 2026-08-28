@@ -1,9 +1,10 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
+if (existsSync(join(root, ".env"))) for (const line of readFileSync(join(root, ".env"), "utf8").split(/\r?\n/)) { const [key, ...value] = line.split("="); if (key && !process.env[key]) process.env[key] = value.join("="); }
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8" };
 
 function plain(value = "") { return String(value).replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim(); }
@@ -47,6 +48,14 @@ function discoverJobs(title, location, keywords, sourceOptions = {}) {
     return matches;
   });
 }
+async function findContacts(company, role) {
+  if (!process.env.BRAVE_SEARCH_API_KEY) throw new Error("Brave Search ist nicht konfiguriert.");
+  const query = `site:linkedin.com/in "${company}" (CEO OR Founder OR "${role}" OR "Head of" OR Director)`;
+  const response = await fetch(`https://api.search.brave.com/res/v1/web/search?${new URLSearchParams({ q: query, count: "10" })}`, { headers: { Accept: "application/json", "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY }, signal: AbortSignal.timeout(12000) });
+  if (!response.ok) throw new Error("Brave Search konnte keine Ergebnisse liefern.");
+  const results = (await response.json()).web?.results || [];
+  return results.filter(item => /linkedin\.com\/in\//i.test(item.url)).slice(0, 2).map(item => ({ url: item.url, name: plain(item.title).replace(/\s*[|–-].*$/, ""), title: plain(item.description).slice(0, 160) }));
+}
 
 createServer((req, res) => {
   const requested = req.url?.split("?")[0] || "/";
@@ -65,6 +74,12 @@ createServer((req, res) => {
     return discoverJobs(title, location, keywords, { arbeitnow: params.get("arbeitnow") !== "false", remotive: params.get("remotive") !== "false" })
       .then(jobs => { res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify({ jobs })); })
       .catch(() => { res.writeHead(502, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Die Jobquellen sind gerade nicht erreichbar." })); });
+  }
+  if (requested === "/api/contact-research") {
+    const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
+    return findContacts(params.get("company") || "", params.get("role") || "")
+      .then(contacts => { res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify({ contacts })); })
+      .catch(error => { res.writeHead(502, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: error.message })); });
   }
   const safePath = normalize(requested === "/" ? "/index.html" : requested).replace(/^(\.\.[\\/])+/g, "");
   const file = join(root, safePath);
