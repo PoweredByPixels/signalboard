@@ -19,9 +19,10 @@ let savedSearches = JSON.parse(localStorage.getItem("signalboard-searches") || "
   { id: 3, title: "Projektmanagement", location: "Berlin", keywords: "Agentur, Digital", active: false }
 ];
 let ignoredJobs = JSON.parse(localStorage.getItem("signalboard-ignored-jobs") || "[]");
-let filter = "all", query = "", draggingId = null, editingSearchId = null, editingJobId = null, returnToContacts = false, manualContactTarget = null;
+let filter = "all", query = "", draggingId = null, editingSearchId = null, editingJobId = null, returnToContacts = false, manualContactTarget = null, pendingDiscoveryCount = 0;
 const board = document.querySelector("#board"), template = document.querySelector("#cardTemplate"), detailDialog = document.querySelector("#detailDialog");
 function save(){ localStorage.setItem("signalboard-jobs", JSON.stringify(jobs)); localStorage.setItem("signalboard-searches", JSON.stringify(savedSearches)); localStorage.setItem("signalboard-ignored-jobs",JSON.stringify(ignoredJobs)); window.signalboardAuth?.saveState({jobs, searches:savedSearches,ignoredJobs}); }
+function updateSearchButton(){const button=document.querySelector("#searchNow");if(button&&!button.disabled)button.textContent=pendingDiscoveryCount?`◌ Jetzt suchen · ${pendingDiscoveryCount} neu`:"◌ Jetzt suchen";}
 function cleanUrl(value=""){try{const url=new URL(value);[...url.searchParams.keys()].filter(key=>/^utm_|^trk$|^ref$/i.test(key)).forEach(key=>url.searchParams.delete(key));url.hash="";return url.toString().replace(/\/$/,"")}catch{return String(value).trim().toLowerCase();}}
 function jobKey(job){return cleanUrl(job.url||job.jobLink||"")||`${String(job.company||"").toLowerCase()}|${String(job.title||job.role||"").toLowerCase()}|${String(job.location||"").toLowerCase()}`}
 function isKnownJob(job){const key=jobKey(job);return jobs.some(item=>jobKey(item)===key)||ignoredJobs.some(item=>item.key===key)}
@@ -127,15 +128,17 @@ async function getApiJson(url) {
   return payload;
 }
 
-function showDiscoveredJobs(items, label) {
+function showDiscoveredJobs(items, label, tabSearchIds = null) {
   const area = document.querySelector("#discoveryResults");
   items=items.filter(job=>!isKnownJob(job));
   const dialog=document.querySelector("#resultsDialog"); if(!dialog.open)dialog.showModal();
-  if (!items.length) { area.innerHTML = '<div class="discovery-empty">Keine Treffer in den angebundenen Quellen. Suchparameter anpassen oder Google Jobs ergänzend nutzen.</div>'; return; }
-  const groupOf=job=>String(job.searchId||"other"),groups=[...new Set(items.map(groupOf))],showTabs=groups.length>1,tabTitle=id=>id==="other"?"Other":savedSearches.find(search=>String(search.id)===id)?.title||"Suchauftrag",activeGroup=groups[0];
-  area.innerHTML = `<div class="discovery-head"><div><h3>${items.length} neue Job-Leads</h3></div></div>${showTabs?`<div class="result-tabs">${groups.map((id,index)=>`<button class="result-tab ${index===0?"active":""}" data-result-tab="${id}">${tabTitle(id)} <b>${items.filter(job=>groupOf(job)===id).length}</b></button>`).join("")}</div>`:""}<div class="discovery-list">${items.map((job, index) => `<article class="result-row" data-search-group="${groupOf(job)}" ${showTabs&&groupOf(job)!==activeGroup?"hidden":""}><div class="result-copy"><strong>${job.company} · ${job.title}</strong><span>${job.location || "Standort offen"} · ${job.source}</span><p class="result-desc">${job.description || ""}</p></div><div class="result-actions"><a target="_blank" rel="noreferrer" href="${job.url}">Job ↗</a><button data-result="${index}">Zur Inbox</button><button class="dismiss-result" data-dismiss="${index}" title="Treffer ausblenden">×</button></div></article>`).join("")}</div>`;
-  const updateResultCount=()=>{const remaining=[...area.querySelectorAll(".result-row")];if(!remaining.length){area.innerHTML='<div class="discovery-complete"><strong>All done!</strong><span>Check again later.</span></div>';return;}area.querySelector(".discovery-head h3").textContent=`${remaining.length} neue Job-Leads`;area.querySelectorAll("[data-result-tab]").forEach(tab=>{tab.querySelector("b").textContent=remaining.filter(row=>row.dataset.searchGroup===tab.dataset.resultTab).length;});};
-  area.querySelectorAll("[data-result-tab]").forEach(tab=>tab.onclick=()=>{const id=tab.dataset.resultTab;area.querySelectorAll("[data-result-tab]").forEach(item=>item.classList.toggle("active",item===tab));area.querySelectorAll(".result-row").forEach(row=>row.hidden=row.dataset.searchGroup!==id);});
+  if (!items.length) { pendingDiscoveryCount=0;updateSearchButton();area.innerHTML = '<div class="discovery-empty">Keine Treffer in den angebundenen Quellen. Suchparameter anpassen oder Google Jobs ergänzend nutzen.</div>'; return; }
+  pendingDiscoveryCount=items.length;updateSearchButton();
+  const groupOf=job=>String(job.searchId||"other"),groups=(tabSearchIds?.length?tabSearchIds.map(String):[...new Set(items.map(groupOf))]),showTabs=groups.length>1,tabTitle=id=>id==="other"?"Other":savedSearches.find(search=>String(search.id)===id)?.title||"Suchauftrag",activeGroup=groups.find(id=>items.some(job=>groupOf(job)===id))||groups[0];
+  area.innerHTML = `<div class="discovery-head"><div><h3>${items.length} neue Job-Leads</h3></div><button class="reset-results" id="searchAgain">↻ Nochmal suchen</button></div>${showTabs?`<div class="result-tabs">${groups.map((id,index)=>`<button class="result-tab ${id===activeGroup?"active":""}" data-result-tab="${id}">${tabTitle(id)} <b>${items.filter(job=>groupOf(job)===id).length}</b></button>`).join("")}</div>`:""}<div class="discovery-list">${items.map((job, index) => `<article class="result-row" data-search-group="${groupOf(job)}" ${showTabs&&groupOf(job)!==activeGroup?"hidden":""}><div class="result-copy"><strong>${job.company} · ${job.title}</strong><span>${job.location || "Standort offen"} · ${job.source}</span><p class="result-desc">${job.description || ""}</p></div><div class="result-actions"><a target="_blank" rel="noreferrer" href="${job.url}">Job ↗</a><button data-result="${index}">Zur Inbox</button><button class="dismiss-result" data-dismiss="${index}" title="Treffer ausblenden">×</button></div></article>`).join("")}<div class="result-tab-empty" hidden>Keine neuen Treffer für diesen Suchauftrag.</div></div>`;
+  const updateResultCount=()=>{const remaining=[...area.querySelectorAll(".result-row")];pendingDiscoveryCount=remaining.length;updateSearchButton();if(!remaining.length){area.innerHTML='<div class="discovery-complete"><strong>All done!</strong><span>Check again later.</span></div>';return;}area.querySelector(".discovery-head h3").textContent=`${remaining.length} neue Job-Leads`;area.querySelectorAll("[data-result-tab]").forEach(tab=>{tab.querySelector("b").textContent=remaining.filter(row=>row.dataset.searchGroup===tab.dataset.resultTab).length;});};
+  area.querySelector("#searchAgain").onclick=()=>{pendingDiscoveryCount=0;updateSearchButton();dialog.close();document.querySelector("#searchNow").click();};
+  area.querySelectorAll("[data-result-tab]").forEach(tab=>tab.onclick=()=>{const id=tab.dataset.resultTab;area.querySelectorAll("[data-result-tab]").forEach(item=>item.classList.toggle("active",item===tab));const rows=[...area.querySelectorAll(".result-row")];rows.forEach(row=>row.hidden=row.dataset.searchGroup!==id);area.querySelector(".result-tab-empty").hidden=rows.some(row=>row.dataset.searchGroup===id);});
   area.querySelectorAll("[data-dismiss]").forEach(button=>button.onclick=()=>{const job=items[Number(button.dataset.dismiss)];ignoreJob(job);button.closest(".result-row").classList.add("result-leaving");setTimeout(()=>{button.closest(".result-row")?.remove();updateResultCount()},220)});
   area.querySelectorAll("[data-result]").forEach(button => button.onclick = () => {
     const job = items[Number(button.dataset.result)];
@@ -151,7 +154,7 @@ async function runDiscovery(id) {
   try {
     const params = new URLSearchParams({ title: search.title, location: search.location, keywords: search.keywords, arbeitnow:search.sources?.arbeitnow!==false,remotive:search.sources?.remotive!==false,braveGames:search.sources?.braveGames!==false,braveTech:search.sources?.braveTech!==false });
     const response = await getApiJson(`/api/discover-jobs?${params}`);
-    showDiscoveredJobs(response.jobs, `${search.title} · ${search.location || "alle Standorte"}`);
+    showDiscoveredJobs(response.jobs.map(job=>({...job,searchId:search.id})), `${search.title} · ${search.location || "alle Standorte"}`, [search.id]);
   } catch (error) { area.innerHTML = `<div class="discovery-empty">${error.message || "Jobquellen sind gerade nicht erreichbar."}</div>`; }
 }
 
@@ -209,6 +212,7 @@ document.querySelectorAll("#closeManualContact,#cancelManualContact").forEach(bu
 document.querySelector("#saveManualContact").onclick=event=>{event.preventDefault();if(!manualContactTarget)return;const job=jobs.find(item=>item.id===manualContactTarget.jobId),path=job&&ensureResearchPaths(job).find(item=>item.id===manualContactTarget.pathId),name=document.querySelector("#manualContactName").value.trim(),role=document.querySelector("#manualContactRole").value.trim(),rawLink=document.querySelector("#manualContactLink").value.trim();if(!job||!path||!name)return;path.contact={name,title:role||"Entscheider",profileUrl:rawLink&&!/^https?:\/\//i.test(rawLink)?`https://${rawLink}`:rawLink};syncContactsFromPaths(job);save();manualContactTarget=null;document.querySelector("#manualContactDialog").close();document.querySelector("#manualContactDialog form").reset();render();openDetail(job.id,"contacts");};
 
 document.querySelector("#searchNow").onclick = async event => {
+  if(pendingDiscoveryCount>0&&document.querySelector("#discoveryResults .result-row")){const dialog=document.querySelector("#resultsDialog");if(!dialog.open)dialog.showModal();return;}
   const button = event.currentTarget, active = savedSearches.filter(search => search.active);
   button.disabled = true; button.textContent = "◌ Suche läuft …";
   let found = [];
@@ -219,6 +223,5 @@ document.querySelector("#searchNow").onclick = async event => {
       found.push(...(response.jobs||[]).map(job=>({...job,searchId:search.id})));
     } catch {}
   }
-  const unique=[...new Map(found.map(job=>[jobKey(job),job])).values()]; button.disabled = false; button.textContent = unique.length ? `✓ ${unique.length} gefunden` : "Keine neuen Jobs"; if(unique.length)showDiscoveredJobs(unique,"Alle aktiven Suchaufträge");
-  setTimeout(() => button.textContent = "◌ Jetzt suchen", 3500);
+  const unique=[...new Map(found.map(job=>[jobKey(job),job])).values()]; button.disabled = false; if(unique.length)showDiscoveredJobs(unique,"Alle aktiven Suchaufträge",active.map(search=>search.id));else{pendingDiscoveryCount=0;button.textContent="Keine neuen Jobs";setTimeout(updateSearchButton,1800);}
 };
