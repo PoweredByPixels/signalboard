@@ -120,11 +120,12 @@ function renderSavedSearches() {
 }
 
 document.querySelector("#openSearches").onclick = () => { renderSavedSearches(); document.querySelector("#searchDialog").showModal(); };
-document.querySelector(".search-close").onclick = () => document.querySelector("#searchDialog").close();
+document.querySelector(".search-close").onclick = () => { editingSearchId = null; document.querySelector("#searchForm").reset(); document.querySelector("#searchForm button").textContent = "＋ Suchauftrag anlegen"; document.querySelector("#searchDialog").close(); };
 document.querySelector("#searchForm").onsubmit = event => {
   event.preventDefault();
   const values = { title: document.querySelector("#searchTitle").value.trim(), location: document.querySelector("#searchLocation").value.trim(), keywords: document.querySelector("#searchKeywords").value.trim(), sources: { arbeitnow: document.querySelector("#sourceArbeitnow").checked, remotive: document.querySelector("#sourceRemotive").checked } };
-  if (editingSearchId) Object.assign(savedSearches.find(search => search.id === editingSearchId), values);
+  const existing = editingSearchId && savedSearches.find(search => search.id === editingSearchId);
+  if (existing) Object.assign(existing, values);
   else savedSearches.push({ id: Date.now(), ...values, active: true });
   editingSearchId = null; save(); event.target.reset(); document.querySelector("#searchForm button").textContent = "＋ Suchauftrag anlegen"; renderSavedSearches(); render();
 };
