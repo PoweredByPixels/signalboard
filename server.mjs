@@ -1,6 +1,7 @@
 import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
+import discoverJobsFunction from "./netlify/functions/discover-jobs.mjs";
 
 const root = process.cwd();
 const port = Number(process.env.PORT || 4173);
@@ -73,8 +74,8 @@ createServer((req, res) => {
     const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
     const title = params.get("title") || "", location = params.get("location") || "", keywords = params.get("keywords") || "";
     if (!title) { res.writeHead(400, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ error: "Ein Rollen- oder Keyword-Begriff fehlt." })); }
-    return discoverJobs(title, location, keywords, { arbeitnow: params.get("arbeitnow") !== "false", remotive: params.get("remotive") !== "false" })
-      .then(jobs => { res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify({ jobs })); })
+    return discoverJobsFunction(new Request(`http://localhost/api/discover-jobs?${params.toString()}`))
+      .then(async response => { res.writeHead(response.status, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(await response.text()); })
       .catch(() => { res.writeHead(502, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: "Die Jobquellen sind gerade nicht erreichbar." })); });
   }
   if (requested === "/api/contact-research") {
