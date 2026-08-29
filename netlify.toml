@@ -6,6 +6,11 @@
   to = "/.netlify/functions/discover-jobs"
   status = 200
 
+[[redirects]]
+  from = "/api/contact-research"
+  to = "/.netlify/functions/contact-research"
+  status = 200
+
 [[headers]]
   for = "/*"
   [headers.values]
