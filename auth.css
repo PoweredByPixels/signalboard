@@ -1,7 +1,14 @@
 body.auth-required main { filter: blur(2px); pointer-events: none; user-select: none; }
-body.auth-required .top-actions > :not(.account-button) { pointer-events: none; opacity: .45; }
-.auth-modal { max-width: 430px; }
+body.auth-required .top-actions > :not(.account-wrap) { pointer-events: none; opacity: .45; }
+.auth-modal { width:min(430px,calc(100vw - 24px)); max-width:430px; }
+#authDialog,#passwordDialog{padding:0;border:0;background:transparent;max-width:calc(100vw - 20px)}
+#authDialog .modal,#passwordDialog .modal{width:100%;margin:0}
+#authDialog.magic-flow #authPassword{display:none}
+#authDialog.magic-flow #authPasswordLabel{display:none}
+#authDialog.magic-flow #useMagicLink{display:none}
+.auth-back{margin-top:12px}
 .account-button { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .linkedin-button { color: #0a66c2; border-color: #0a66c244; }
 .text-button { display: block; margin: 12px auto 0; padding: 0; border: 0; background: transparent; color: #49676b; text-decoration: underline; cursor: pointer; font: inherit; font-size: .82rem; }
 @media (max-width: 680px) { .account-button { font-size: 0; width: 38px; min-width: 38px; padding: 0; } .account-button::first-letter { font-size: 16px; } }
+@media (max-width: 480px) { .auth-modal{padding:22px 18px}.auth-modal .modal-actions{display:block}.auth-modal .modal-actions .primary{width:100%} }

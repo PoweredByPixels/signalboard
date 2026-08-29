@@ -1,0 +1,25 @@
+(function () {
+  const text = {
+    de: { searches:"⌕ Suchaufträge", searchNow:"◌ Jetzt suchen", addJob:"＋ Job hinzufügen", connect:"in LinkedIn verbinden", password:"Passwort", login:"Anmelden", logout:"Abmelden", heroEyebrow:"FREELANCE OUTREACH · AUGUST", hero:"Finde Signale.<br /><em>Starte Gespräche.</em>", intro:"Suche nach offenen Rollen, finde einen Ansprechpartner, starte eine Kontaktaufnahme.", week:"Diese Woche", messages:"persönliche Nachrichten", searchPlaceholder:"Jobs, Firmen oder Rollen durchsuchen", all:"Alle", fresh:"Neu", archive:"Archiv", inbox:"Inbox", contacts:"Kontakte", ready:"Bereit zum Anschreiben", waiting:"Waiting", jobTitle:"Job zur Pipeline hinzufügen", searchTitle:"Deine Suchaufträge", authTitle:"Anmelden", authIntro:"Deine Pipeline bleibt in deinem persönlichen Workspace gespeichert.", email:"E-Mail-Adresse", currentPassword:"Passwort", loginSubmit:"Anmelden", magic:"Ersteinrichtung oder Passwort vergessen? Magic Link senden", magicSubmit:"Magic Link anfordern", passwordBack:"← Mit Passwort anmelden", footer:"Signalboard · Eine persönliche Outreach-Pipeline.", imprint:"Impressum", privacy:"Datenschutz", empty:"Karte hierher ziehen", qualify:"qualifizieren", findContacts:"Kontakte finden", chooseContact:"Kontakt wählen", send:"versenden", followUp:"nachfassen" },
+    en: { searches:"⌕ Saved searches", searchNow:"◌ Search now", addJob:"＋ Add job", connect:"in Connect LinkedIn", password:"Password", login:"Sign in", logout:"Sign out", heroEyebrow:"FREELANCE OUTREACH · AUGUST", hero:"Find signals.<br /><em>Start conversations.</em>", intro:"Search open roles, find the right contact and start a thoughtful outreach.", week:"This week", messages:"personal messages", searchPlaceholder:"Search jobs, companies or roles", all:"All", fresh:"New", archive:"Archive", inbox:"Inbox", contacts:"Contacts", ready:"Ready to reach out", waiting:"Waiting", jobTitle:"Add job to pipeline", searchTitle:"Your saved searches", authTitle:"Sign in", authIntro:"Your pipeline is saved in your personal workspace.", email:"Email address", currentPassword:"Password", loginSubmit:"Sign in", magic:"First time or forgot your password? Send a magic link", magicSubmit:"Request magic link", passwordBack:"← Sign in with password", footer:"Signalboard · Your personal outreach pipeline.", imprint:"Imprint", privacy:"Privacy", empty:"Drag a card here", qualify:"qualify", findContacts:"find contacts", chooseContact:"choose contact", send:"send", followUp:"follow up" }
+  };
+  let locale = localStorage.getItem("signalboard-locale") || "de";
+  const t = key => text[locale]?.[key] || text.de[key] || key;
+  const label = (id, value) => { const field = document.querySelector(id); if (field?.parentElement?.firstChild) field.parentElement.firstChild.nodeValue = value; };
+  function apply() {
+    document.documentElement.lang = locale;
+    document.querySelector("#languageSelect").value = locale;
+    document.querySelector("#openSearches").innerHTML = `${t("searches")} <b id="activeSearchCount"></b>`;
+    document.querySelector("#searchNow").textContent = t("searchNow"); document.querySelector("#addJob").textContent = t("addJob");
+    document.querySelector(".hero .eyebrow").textContent = t("heroEyebrow"); document.querySelector(".hero h1").innerHTML = t("hero"); document.querySelector(".hero .intro").textContent = t("intro");
+    document.querySelector(".goal span").textContent = t("week"); document.querySelector(".goal p").textContent = t("messages"); document.querySelector("#search").placeholder = t("searchPlaceholder");
+    document.querySelector('[data-filter="all"]').childNodes[0].nodeValue = `${t("all")} `; document.querySelector('[data-filter="new"]').textContent = t("fresh"); document.querySelector('[data-filter="archive"]').textContent = t("archive");
+    document.querySelector("#jobDialog h2").textContent = t("jobTitle"); document.querySelector("#searchDialog h2").textContent = t("searchTitle"); document.querySelector("#authDialog h2").textContent = t("authTitle"); document.querySelector("#authDialog .modal-intro").textContent = t("authIntro");
+    label("#authEmail", t("email")); label("#authPassword", t("currentPassword")); document.querySelector('#authForm button[type="submit"]').textContent = document.querySelector("#authForm").dataset.mode === "magic" ? t("magicSubmit") : t("loginSubmit"); document.querySelector("#useMagicLink").textContent = t("magic"); document.querySelector("#backToPassword").textContent = t("passwordBack");
+    document.querySelector(".footer-brand p").textContent = t("footer"); document.querySelectorAll('.site-footer a[href="imprint.html"]').forEach(node => node.textContent = t("imprint")); document.querySelectorAll('.site-footer a[href="privacy.html"]').forEach(node => node.textContent = t("privacy"));
+    window.dispatchEvent(new Event("signalboard-language-changed"));
+  }
+  document.querySelector("#languageSelect").onchange = event => { locale = event.target.value; localStorage.setItem("signalboard-locale", locale); apply(); };
+  window.signalboardI18n = { t, get locale() { return locale; }, apply };
+  apply();
+})();
