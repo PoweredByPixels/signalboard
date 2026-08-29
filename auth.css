@@ -1,0 +1,6 @@
+body.auth-required main { filter: blur(2px); pointer-events: none; user-select: none; }
+body.auth-required .top-actions > :not(.account-button) { pointer-events: none; opacity: .45; }
+.auth-modal { max-width: 430px; }
+.account-button { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linkedin-button { color: #0a66c2; border-color: #0a66c244; }
+@media (max-width: 680px) { .account-button { font-size: 0; width: 38px; min-width: 38px; padding: 0; } .account-button::first-letter { font-size: 16px; } }

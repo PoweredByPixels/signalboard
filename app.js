@@ -20,7 +20,7 @@ let savedSearches = JSON.parse(localStorage.getItem("signalboard-searches") || "
 ];
 let filter = "all", query = "", draggingId = null, editingSearchId = null;
 const board = document.querySelector("#board"), template = document.querySelector("#cardTemplate"), detailDialog = document.querySelector("#detailDialog");
-function save(){ localStorage.setItem("signalboard-jobs", JSON.stringify(jobs)); localStorage.setItem("signalboard-searches", JSON.stringify(savedSearches)); }
+function save(){ localStorage.setItem("signalboard-jobs", JSON.stringify(jobs)); localStorage.setItem("signalboard-searches", JSON.stringify(savedSearches)); window.signalboardAuth?.saveState({jobs, searches:savedSearches}); }
 save();
 function initials(name){ return (name || "SB").split(" ").map(x=>x[0]).join("").slice(0,2); }
 function nextLabel(status){ return ({ inbox:"qualifizieren", qualified:"Kontakte finden", contacts:"Kontakt wählen", ready:"versenden", waiting:"nachfassen" })[status]; }
@@ -57,7 +57,20 @@ function openDetail(id){ const job=jobs.find(j=>j.id===id); const role=job.role.
 document.querySelector("#addJob").onclick=()=>document.querySelector("#jobDialog").showModal();
 document.querySelector("#saveJob").onclick=e=>{const company=document.querySelector("#companyInput").value.trim(),role=document.querySelector("#roleInput").value.trim();if(!company||!role){e.preventDefault();return;}jobs.unshift({id:Date.now(),company,role,location:document.querySelector("#locationInput").value.trim(),jobLink:document.querySelector("#linkInput").value.trim(),status:"inbox",priority:"medium",note:document.querySelector("#noteInput").value.trim()||"Neu hinzugefügt – Kontakt recherchieren.",contacts:[]});save();render();};
 document.querySelector(".detail-close").onclick=()=>detailDialog.close(); document.querySelector("#search").oninput=e=>{query=e.target.value.toLowerCase();render()}; document.querySelectorAll(".filter").forEach(b=>b.onclick=()=>{filter=b.dataset.filter;document.querySelectorAll(".filter").forEach(x=>x.classList.toggle("active",x===b));render()}); document.querySelector("#focusButton").onclick=()=>document.body.classList.toggle("focus");
-render();
+async function hydrateCloudWorkspace(){
+  await window.signalboardAuth?.ready;
+  try {
+    const cloud = await window.signalboardAuth?.loadState();
+    if (cloud?.jobs?.length || cloud?.searches?.length) {
+      jobs = cloud.jobs || [];
+      savedSearches = cloud.searches || [];
+    } else if (window.signalboardAuth?.configured && window.signalboardAuth.user) {
+      save();
+    }
+  } catch (error) { console.warn("Cloud-Workspace konnte nicht geladen werden:", error.message); }
+  render();
+}
+hydrateCloudWorkspace();
 
 function googleSearch(query) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;

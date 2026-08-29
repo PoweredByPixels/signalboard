@@ -10,4 +10,4 @@ npm start
 
 Danach unter `http://localhost:4173` öffnen. Im gleichen WLAN ist die App über die lokale IPv4-Adresse des Rechners und Port `4173` erreichbar.
 
-Die Daten bleiben bewusst im Browser (`localStorage`); keine Daten werden an LinkedIn oder andere Dienste geschickt. Die Profil-Links öffnen eine Google-Suche, aus der passende LinkedIn-Profile manuell ausgewählt werden können.
+Lokal bleiben die Daten im Browser (`localStorage`). Für den Live-Betrieb enthält das Projekt zusätzlich eine optionale Supabase-Basis für Magic-Link-Login und persönliche Cloud-Workspaces sowie sichere Netlify-Functions für LinkedIn OAuth. Die Einrichtung steht in [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
