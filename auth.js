@@ -10,6 +10,8 @@
   const emailInput = document.querySelector("#authEmail");
   const status = document.querySelector("#authStatus");
   let client = null, currentUser = null, configured = false, saveTimer = null;
+  const authLinkType = new URLSearchParams(window.location.hash.slice(1)).get("type");
+  const shouldSetPassword = authLinkType === "magiclink" || authLinkType === "recovery";
   function displayUser() { accountButton.textContent = currentUser ? "Abmelden" : "Anmelden"; accountButton.title = currentUser?.email || "Anmelden"; linkedinButton.hidden = !currentUser; passwordButton.hidden = !currentUser; document.body.classList.toggle("auth-required", configured && !currentUser); }
   async function loadConfig() { try { const response = await fetch("/.netlify/functions/app-config", { cache: "no-store" }); return response.ok ? await response.json() : null; } catch { return null; } }
   async function boot() {
@@ -17,7 +19,7 @@
     if (!config?.supabaseUrl || !config?.supabaseAnonKey || !window.supabase) { accountButton.hidden = true; return; }
     configured = true; client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
     const { data } = await client.auth.getSession(); currentUser = data.session?.user || null; displayUser();
-    client.auth.onAuthStateChange((_event, session) => { currentUser = session?.user || null; displayUser(); if (currentUser) { authDialog.close(); refreshLinkedInStatus(); } else authDialog.showModal(); window.dispatchEvent(new CustomEvent("signalboard-auth-change", { detail: { user: currentUser } })); });
+    client.auth.onAuthStateChange((_event, session) => { currentUser = session?.user || null; displayUser(); if (currentUser) { authDialog.close(); refreshLinkedInStatus(); if (shouldSetPassword) { passwordForm.reset(); passwordDialog.showModal(); } } else authDialog.showModal(); window.dispatchEvent(new CustomEvent("signalboard-auth-change", { detail: { user: currentUser } })); });
     if (!currentUser) authDialog.showModal();
     if (currentUser) refreshLinkedInStatus();
   }
@@ -45,6 +47,6 @@
   document.querySelector("#useMagicLink").onclick = async () => { if (!client || !emailInput.value.trim()) { status.textContent = "Bitte zuerst deine E-Mail-Adresse eingeben."; return; } status.textContent = "Magic Link wird gesendet …"; const { error } = await client.auth.signInWithOtp({ email: emailInput.value.trim(), options: { emailRedirectTo: window.location.origin } }); status.textContent = error ? error.message : "Geschickt. Öffne den Link in deiner E-Mail und lege danach ein Passwort fest."; };
   passwordButton.onclick = () => { document.querySelector("#passwordStatus").textContent = ""; passwordForm.reset(); passwordDialog.showModal(); };
   document.querySelector(".password-close").onclick = () => passwordDialog.close();
-  passwordForm.onsubmit = async (event) => { event.preventDefault(); const password = document.querySelector("#newPassword").value, confirm = document.querySelector("#confirmPassword").value, passwordStatus = document.querySelector("#passwordStatus"); if (password !== confirm) { passwordStatus.textContent = "Die Passwörter stimmen nicht überein."; return; } passwordStatus.textContent = "Speichere …"; const { error } = await client.auth.updateUser({ password }); if (error) { passwordStatus.textContent = error.message; return; } passwordStatus.textContent = "Passwort gespeichert ✓"; setTimeout(() => passwordDialog.close(), 700); };
+  passwordForm.onsubmit = async (event) => { event.preventDefault(); const password = document.querySelector("#newPassword").value, confirm = document.querySelector("#confirmPassword").value, passwordStatus = document.querySelector("#passwordStatus"); if (password !== confirm) { passwordStatus.textContent = "Die Passwörter stimmen nicht überein."; return; } passwordStatus.textContent = "Speichere …"; const { error } = await client.auth.updateUser({ password }); if (error) { passwordStatus.textContent = error.message; return; } passwordStatus.textContent = "Passwort gespeichert ✓"; history.replaceState(null, "", `${location.pathname}${location.search}`); setTimeout(() => passwordDialog.close(), 700); };
   window.signalboardAuth = { get configured() { return configured; }, ready, loadState, saveState, get user() { return currentUser; } };
 })();
