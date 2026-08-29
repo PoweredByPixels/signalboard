@@ -9,6 +9,8 @@ if (existsSync(join(root, ".env"))) for (const line of readFileSync(join(root, "
 const types = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json", ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".svg": "image/svg+xml" };
 
 function plain(value = "") { return String(value).replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim(); }
+function contactFacts(item){const heading=plain(item.title).replace(/\s*\|\s*linkedin.*$/i,"").trim(),parts=heading.split(/\s+(?:[-–—]|\|)\s+/).map(part=>part.trim()).filter(Boolean);return{name:parts[0]||heading,title:parts.slice(1).find(part=>!/^(linkedin|profile)$/i.test(part))||"",text:`${heading} ${plain(item.description)}`.toLowerCase()};}
+function functionalContactTerms(role = "") { const value=role.toLowerCase(); if(/operations|live ops|producer|project/.test(value))return "\"Head of Operations\" OR \"Operations Director\" OR COO";if(/product|monetization/.test(value))return "\"Head of Product\" OR \"Product Director\" OR CPO";if(/publishing/.test(value))return "\"Head of Publishing\" OR \"Publishing Director\"";if(/community|support/.test(value))return "\"Head of Community\" OR \"Player Support Director\"";if(/localization/.test(value))return "\"Head of Localization\" OR \"Localization Director\"";return "\"Head of\" OR Director OR VP"; }
 function jsonLd(html) {
   return [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)].flatMap(match => {
     try { const parsed = JSON.parse(match[1]); return Array.isArray(parsed) ? parsed : [parsed]; } catch { return []; }
@@ -51,13 +53,14 @@ function discoverJobs(title, location, keywords, sourceOptions = {}) {
     return matches;
   });
 }
-async function findContacts(company, role) {
+async function findContacts(company, role, focus = "role") {
   if (!process.env.BRAVE_SEARCH_API_KEY) throw new Error("Brave Search ist nicht konfiguriert.");
-  const query = `site:linkedin.com/in "${company}" (CEO OR Founder OR "${role}" OR "Head of" OR Director)`;
+  const focusTerms = focus === "executive" ? "CEO OR Founder OR COO OR \"Managing Director\"" : functionalContactTerms(role);
+  const query = `site:linkedin.com/in "${company}" (${focusTerms})`;
   const response = await fetch(`https://api.search.brave.com/res/v1/web/search?${new URLSearchParams({ q: query, count: "10" })}`, { headers: { Accept: "application/json", "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY }, signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error("Brave Search konnte keine Ergebnisse liefern.");
-  const results = (await response.json()).web?.results || [];
-  return results.filter(item => /linkedin\.com\/in\//i.test(item.url)).slice(0, 2).map(item => ({ url: item.url, name: plain(item.title).replace(/\s*[|–-].*$/, ""), title: plain(item.description).slice(0, 160) }));
+  const results = (await response.json()).web?.results || [], companyTerms=company.toLowerCase().split(/\s+/).filter(term=>term.length>2), roleTerms=role.toLowerCase().split(/[^a-zäöüß]+/i).filter(term=>term.length>3), focusPattern=focus==="executive"?/\b(ceo|coo|founder|managing director|geschäftsführer)\b/i:/\b(head of|director|manager|lead)\b/i;
+  return results.filter(item => /linkedin\.com\/in\//i.test(item.url)).map(item=>{const facts=contactFacts(item),titleText=facts.title.toLowerCase(),companyMatches=companyTerms.filter(term=>facts.text.includes(term)).length,companyTitleMatches=companyTerms.filter(term=>titleText.includes(term)).length,roleMatches=roleTerms.filter(term=>titleText.includes(term)).length,leadership=focusPattern.test(titleText),minimumCompanyMatches=Math.min(2,companyTerms.length),accepted=facts.title&&companyMatches>=minimumCompanyMatches&&companyTitleMatches>=minimumCompanyMatches&&(focus==="executive"?leadership:leadership&&(roleMatches>0||/\b(head of|director|vp|chief|coo|cpo)\b/i.test(titleText))),score=companyMatches*12+roleMatches*18+(leadership?16:0);return{item,facts,accepted,score}}).filter(result=>result.accepted).sort((a,b)=>b.score-a.score).slice(0,2).map(({item,facts}) => ({ url: item.url, name: facts.name, title: facts.title }));
 }
 
 createServer((req, res) => {
@@ -80,7 +83,7 @@ createServer((req, res) => {
   }
   if (requested === "/api/contact-research") {
     const params = new URL(req.url, `http://${req.headers.host}`).searchParams;
-    return findContacts(params.get("company") || "", params.get("role") || "")
+    return findContacts(params.get("company") || "", params.get("role") || "", params.get("focus") || "role")
       .then(contacts => { res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }); res.end(JSON.stringify({ contacts })); })
       .catch(error => { res.writeHead(502, { "Content-Type": "application/json" }); res.end(JSON.stringify({ error: error.message })); });
   }

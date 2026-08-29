@@ -13,13 +13,14 @@ const hasTerms = (value, search) => {
 };
 const braveSources={games:["hitmarker.net/jobs","workwithindies.com","ingamejob.com","gamesjobsdirect.com","jobs.gamesindustry.biz"],tech:["wellfound.com/jobs","weworkremotely.com","workingnomads.com","eustartupjobs.com"]};
 const sourceName=url=>{try{return new URL(url).hostname.replace(/^www\./,"")}catch{return "Brave"}};
+const isListingPage=item=>{try{const url=new URL(item.url),path=url.pathname.toLowerCase().replace(/\/$/,"")||"/",title=plain(item.title).toLowerCase();return /^\/(?:en|de|ru)?$/.test(path)||/\/(?:jobs?|vacancies|careers|search)$/.test(path)||/\b(job board|find jobs|jobs in|all jobs|career opportunities|vacancies)\b/.test(title);}catch{return true;}};
 async function braveJobs(kind,title,location,keywords,signal){
   const key=process.env.BRAVE_SEARCH_API_KEY;if(!key)return [];
   const sites=braveSources[kind].map(domain=>`site:${domain}`).join(" OR ");
   const query=`(${sites}) "${title}" ${location||""} ${keywords||""}`.trim();
   const response=await fetch(`https://api.search.brave.com/res/v1/web/search?${new URLSearchParams({q:query,count:"12"})}`,{headers:{Accept:"application/json","X-Subscription-Token":key},signal});
   if(!response.ok)return [];
-  return ((await response.json()).web?.results||[]).map(item=>{const parts=plain(item.title).split(/\s[|–-]\s/);return {title:parts[0]||plain(item.title),company:parts[1]||sourceName(item.url),location:location||"",url:item.url,source:`Brave · ${sourceName(item.url)}`,description:plain(item.description).slice(0,260)};});
+  return ((await response.json()).web?.results||[]).filter(item=>!isListingPage(item)).map(item=>{const parts=plain(item.title).split(/\s[|–-]\s/);return {title:parts[0]||plain(item.title),company:parts[1]||sourceName(item.url),location:location||"",url:item.url,source:`Brave · ${sourceName(item.url)}`,description:plain(item.description).slice(0,260)};});
 }
 
 export default async request => {
