@@ -1,7 +1,15 @@
 const plain = (value = "") => String(value).replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim();
+const roleAliases = {
+  "produktmanager": ["product manager", "product owner"], "product manager": ["produktmanager", "product owner"], "product owner": ["produktmanager", "product manager"],
+  "projektmanager": ["project manager", "producer"], "project manager": ["projektmanager", "producer"], "producer": ["projektmanager", "project manager"],
+  "veröffentlichung": ["publishing"], "publishing": ["veröffentlichung"], "betrieb": ["operations", "live ops"], "operations": ["betrieb", "live ops"], "live ops": ["betrieb", "operations"],
+  "lokalisierung": ["localization"], "localization": ["lokalisierung"], "gemeinschaft": ["community"], "community": ["gemeinschaft"],
+  "kundensupport": ["support", "player support"], "support": ["kundensupport", "player support"], "monetarisierung": ["monetization"], "monetization": ["monetarisierung"]
+};
+const searchTerms = search => String(search || "").toLowerCase().split(/[,&/]+/).map(term => term.trim()).filter(Boolean).flatMap(term => [term, ...(roleAliases[term] || [])]);
 const hasTerms = (value, search) => {
   const text = String(value || "").toLowerCase();
-  return String(search || "").toLowerCase().split(/[,&/]+/).map(term => term.trim()).filter(Boolean).some(term => text.includes(term));
+  return searchTerms(search).some(term => text.includes(term));
 };
 
 export default async request => {

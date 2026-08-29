@@ -22,9 +22,11 @@ function findJobData(html, url) {
   const location = [address.addressLocality, address.addressRegion, address.addressCountry].filter(Boolean).join(", ");
   return { title: plain(job.title || ogTitle || titleTag || ""), company: plain(company), location: plain(location), source: new URL(url).hostname.replace(/^www\./, "") };
 }
+const roleAliases = { "produktmanager": ["product manager", "product owner"], "product manager": ["produktmanager", "product owner"], "product owner": ["produktmanager", "product manager"], "projektmanager": ["project manager", "producer"], "project manager": ["projektmanager", "producer"], "producer": ["projektmanager", "project manager"], "veröffentlichung": ["publishing"], "publishing": ["veröffentlichung"], "betrieb": ["operations", "live ops"], "operations": ["betrieb", "live ops"], "live ops": ["betrieb", "operations"], "lokalisierung": ["localization"], "localization": ["lokalisierung"], "gemeinschaft": ["community"], "community": ["gemeinschaft"], "kundensupport": ["support", "player support"], "support": ["kundensupport", "player support"], "monetarisierung": ["monetization"], "monetization": ["monetarisierung"] };
+function searchTerms(search) { return String(search || "").toLowerCase().split(/[,&/]+/).map(term => term.trim()).filter(Boolean).flatMap(term => [term, ...(roleAliases[term] || [])]); }
 function hasTerms(value, search) {
   const text = String(value || "").toLowerCase();
-  return String(search || "").toLowerCase().split(/[,&/]+/).map(term => term.trim()).filter(Boolean).some(term => text.includes(term));
+  return searchTerms(search).some(term => text.includes(term));
 }
 function discoverJobs(title, location, keywords, sourceOptions = {}) {
   const timeout = AbortSignal.timeout(12000);
