@@ -14,7 +14,7 @@
     if (!config?.supabaseUrl || !config?.supabaseAnonKey || !window.supabase) { accountButton.hidden = true; return; }
     configured = true; client = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
     const { data } = await client.auth.getSession(); currentUser = data.session?.user || null; displayUser();
-    client.auth.onAuthStateChange((_event, session) => { currentUser = session?.user || null; displayUser(); if (currentUser) authDialog.close(); else authDialog.showModal(); });
+    client.auth.onAuthStateChange((_event, session) => { currentUser = session?.user || null; displayUser(); if (currentUser) { authDialog.close(); refreshLinkedInStatus(); } else authDialog.showModal(); window.dispatchEvent(new CustomEvent("signalboard-auth-change", { detail: { user: currentUser } })); });
     if (!currentUser) authDialog.showModal();
     if (currentUser) refreshLinkedInStatus();
   }

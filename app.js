@@ -71,6 +71,7 @@ async function hydrateCloudWorkspace(){
   render();
 }
 hydrateCloudWorkspace();
+window.addEventListener("signalboard-auth-change", () => hydrateCloudWorkspace());
 
 function googleSearch(query) {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}`;
