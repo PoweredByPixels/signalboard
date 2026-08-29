@@ -7,7 +7,7 @@
 3. Unter **Authentication → URL Configuration** diese URLs eintragen:
    - Site URL: `https://signalboard-poweredbypixels.netlify.app`
    - Redirect URL: `https://signalboard-poweredbypixels.netlify.app/**`
-4. Unter **Authentication → Providers → Email** Magic Links aktiv lassen. Für den Start kann die E-Mail-Bestätigung aktiv bleiben.
+4. Unter **Authentication → Providers → Email** E-Mail-Anmeldung aktiv lassen. Signalboard nutzt Passwörter für die tägliche Anmeldung; Magic Links dienen nur der Ersteinrichtung oder Passwort-Wiederherstellung.
 5. Unter **Project Settings → API** kopieren: `Project URL`, den **anon/publishable key** und den **service_role key**. Den Service-Role-Key niemals in den Browser, GitHub oder einen Chat kopieren.
 
 ## 2. Netlify-Umgebungsvariablen setzen

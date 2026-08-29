@@ -3,4 +3,5 @@ body.auth-required .top-actions > :not(.account-button) { pointer-events: none; 
 .auth-modal { max-width: 430px; }
 .account-button { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .linkedin-button { color: #0a66c2; border-color: #0a66c244; }
+.text-button { display: block; margin: 12px auto 0; padding: 0; border: 0; background: transparent; color: #49676b; text-decoration: underline; cursor: pointer; font: inherit; font-size: .82rem; }
 @media (max-width: 680px) { .account-button { font-size: 0; width: 38px; min-width: 38px; padding: 0; } .account-button::first-letter { font-size: 16px; } }
