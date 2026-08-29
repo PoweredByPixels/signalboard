@@ -1,0 +1,20 @@
+const plain = (value = "") => String(value).replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, "\"").replace(/&#39;/g, "'").replace(/\s+/g, " ").trim();
+const hasTerms = (value, search) => {
+  const text = String(value || "").toLowerCase();
+  return String(search || "").toLowerCase().split(/[,&/]+/).map(term => term.trim()).filter(Boolean).some(term => text.includes(term));
+};
+
+export default async request => {
+  const params = new URL(request.url).searchParams;
+  const title = params.get("title") || "", location = params.get("location") || "", keywords = params.get("keywords") || "";
+  if (!title) return Response.json({ error: "Ein Rollen- oder Keyword-Begriff fehlt." }, { status: 400 });
+  const timeout = AbortSignal.timeout(12000);
+  const [remotiveResult, arbeitnowResult] = await Promise.allSettled([
+    params.get("remotive") === "false" ? Promise.resolve({ jobs: [] }) : fetch("https://remotive.com/api/remote-jobs", { signal: timeout }).then(response => response.json()),
+    params.get("arbeitnow") === "false" ? Promise.resolve({ data: [] }) : fetch("https://www.arbeitnow.com/api/job-board-api", { signal: timeout }).then(response => response.json())
+  ]);
+  const remote = remotiveResult.status === "fulfilled" ? (remotiveResult.value.jobs || []).map(job => ({ title: plain(job.title), company: plain(job.company_name), location: plain(job.candidate_required_location || "Remote"), url: job.url, source: "Remotive", publishedAt: job.publication_date, description: plain(job.description).slice(0, 260) })) : [];
+  const arbeitnow = arbeitnowResult.status === "fulfilled" ? (arbeitnowResult.value.data || []).map(job => ({ title: plain(job.title), company: plain(job.company_name), location: plain(job.location || (job.remote ? "Remote" : "")), url: job.url, source: "Arbeitnow", publishedAt: job.created_at ? new Date(job.created_at * 1000).toISOString() : "", description: plain(job.description).slice(0, 260) })) : [];
+  const jobs = [...arbeitnow, ...remote].filter(job => hasTerms(job.title, title) || hasTerms(job.description, title)).filter(job => !location || (/remote/i.test(location) ? /remote/i.test(`${job.location} ${job.description}`) : hasTerms(job.location, location) || hasTerms(job.description, location))).filter(job => !keywords || hasTerms(`${job.title} ${job.description}`, keywords)).slice(0, 12);
+  return Response.json({ jobs }, { headers: { "Cache-Control": "no-store" } });
+};
